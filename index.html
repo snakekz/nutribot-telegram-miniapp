@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>NutriBot — КБЖУ трекер</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding-bottom: 70px;
+        }
+        .container { max-width: 600px; margin: 0 auto; padding: 16px; }
+        .card { background: var(--tg-theme-secondary-bg-color, #f5f5f5); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+        .button {
+            background: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none; border-radius: 12px; padding: 12px 20px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%;
+            transition: opacity 0.2s;
+        }
+        .button:active { opacity: 0.7; }
+        .button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .progress-bar { background: rgba(0,0,0,0.1); border-radius: 12px; height: 8px; overflow: hidden; margin: 8px 0; }
+        .progress-fill { background: var(--tg-theme-button-color, #2481cc); height: 100%; border-radius: 12px; transition: width 0.3s; }
+        .entry-item { padding: 8px 0; border-bottom: 1px solid var(--tg-theme-hint-color, #eeeeee); }
+        input, select {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            border: 1px solid var(--tg-theme-hint-color, #cccccc);
+            border-radius: 12px; padding: 12px; font-size: 16px; width: 100%; margin-top: 8px; margin-bottom: 16px;
+        }
+        label { font-weight: 500; font-size: 14px; }
+        h1, h2, h3 { margin-bottom: 16px; }
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-top: 1px solid var(--tg-theme-hint-color, #cccccc);
+            display: flex; justify-content: space-around; padding: 8px 0 12px; max-width: 600px; margin: 0 auto; z-index: 100;
+        }
+        .nav-item { background: none; border: none; font-size: 24px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-family: inherit; }
+        .nav-label { font-size: 10px; color: var(--tg-theme-hint-color, #666); }
+        .text-center { text-align: center; }
+        .text-muted { color: var(--tg-theme-hint-color, #999); }
+        .mt-4 { margin-top: 16px; }
+        .dev-badge {
+            margin-top: 8px; padding: 8px 10px; border-radius: 10px;
+            background: #fff3cd; color: #856404; font-size: 12px; border: 1px solid #ffe69c;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+    <script type="text/javascript">
+        const PRODUCTS_DB = [
+            { id: '1', name: 'Куриная грудка вареная', barcode: '460000000001', calories: 165, protein: 31, fat: 3.6, carbs: 0, allergens: [], category: 'meat', servingSize: 100, servingUnit: 'г' },
+            { id: '2', name: 'Гречка отварная', barcode: '460000000002', calories: 110, protein: 3.6, fat: 1.3, carbs: 21, allergens: ['gluten'], category: 'grains', servingSize: 100, servingUnit: 'г' },
+            { id: '3', name: 'Молоко 3.2%', barcode: '460000000003', calories: 60, protein: 3.2, fat: 3.2, carbs: 4.7, allergens: ['lactose'], category: 'dairy', servingSize: 200, servingUnit: 'мл' },
+            { id: '4', name: 'Яблоко', barcode: '460000000004', calories: 52, protein: 0.3, fat: 0.2, carbs: 14, allergens: [], category: 'fruit', servingSize: 1, servingUnit: 'шт' },
+            { id: '5', name: 'Хлеб белый', barcode: '460000000005', calories: 265, protein: 8, fat: 3.5, carbs: 49, allergens: ['gluten'], category: 'bakery', servingSize: 30, servingUnit: 'кус' },
+            { id: '6', name: 'Творог 5%', barcode: '460000000006', calories: 121, protein: 15, fat: 5, carbs: 3, allergens: ['lactose'], category: 'dairy', servingSize: 100, servingUnit: 'г' },
+            { id: '7', name: 'Овсянка', barcode: '460000000007', calories: 68, protein: 2.4, fat: 1.4, carbs: 12, allergens: ['gluten'], category: 'grains', servingSize: 100, servingUnit: 'г' },
+            { id: '8', name: 'Яйцо куриное', barcode: '460000000008', calories: 155, protein: 13, fat: 11, carbs: 0.7, allergens: ['eggs'], category: 'eggs', servingSize: 1, servingUnit: 'шт' }
+        ];
+
+        function findProductByBarcode(barcode) { return PRODUCTS_DB.find(p => p.barcode === barcode); }
+        function searchProducts(query) { return PRODUCTS_DB.filter(p => p.name.toLowerCase().includes(query.toLowerCase())); }
+
+        const PROFILE_KEY = 'nutribot_profile';
+        const ENTRIES_KEY = 'nutribot_entries';
+        function saveUserProfile(profile) { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }
+        function getUserProfile() { const raw = localStorage.getItem(PROFILE_KEY); return raw ? JSON.parse(raw) : null; }
+        function saveEntry(entry) { const entries = getEntries(); entries.push(entry); localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries)); }
+        function getEntries() { const raw = localStorage.getItem(ENTRIES_KEY); return raw ? JSON.parse(raw) : []; }
+        function deleteEntry(id) { localStorage.setItem(ENTRIES_KEY, JSON.stringify(getEntries().filter(e => e.id !== id))); }
+        function getEntriesByDate(date) {
+            const start = new Date(date).setHours(0, 0, 0, 0);
+            const end = new Date(date).setHours(23, 59, 59, 999);
+            return getEntries().filter(e => e.timestamp >= start && e.timestamp <= end);
+        }
+        function getTodaySummary() {
+            const today = new Date().toISOString().split('T')[0];
+            const entries = getEntriesByDate(today);
+            return entries.reduce((acc, e) => ({
+                ...acc,
+                calories: acc.calories + e.calories,
+                protein: acc.protein + e.protein,
+                fat: acc.fat + e.fat,
+                carbs: acc.carbs + e.carbs
+            }), { date: today, calories: 0, protein: 0, fat: 0, carbs: 0, entries });
+        }
+        function calculateCalories(profile) {
+            let bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age;
+            bmr += profile.telegramId % 2 === 0 ? 5 : -161;
+            const activityMap = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, extreme: 1.9 };
+            let tdee = bmr * (activityMap[profile.activityLevel] || 1.55);
+            if (profile.goal === 'lose') return Math.round(tdee * 0.85);
+            if (profile.goal === 'gain') return Math.round(tdee * 1.1);
+            return Math.round(tdee);
+        }
+
+        const tg = window.Telegram?.WebApp;
+
+        function getPathFromLocation() {
+            const hashPath = window.location.hash.replace(/^#/, '');
+            if (hashPath && hashPath.startsWith('/')) return hashPath;
+            return '/';
+        }
+
+        function setPathToLocation(path) {
+            if (window.location.hash !== '#' + path) {
+                window.location.hash = path;
+            }
+        }
+
+        function useTelegram() {
+            const [context, setContext] = React.useState(null);
+            React.useEffect(() => {
+                if (tg) {
+                    tg.expand();
+                    tg.ready();
+                    setContext({
+                        user: tg.initDataUnsafe?.user,
+                        isLocal: false,
+                        close: () => tg.close(),
+                        showAlert: (msg) => tg.showAlert(msg),
+                        hapticFeedback: { notificationOccurred: (type) => tg.Haptics?.notificationOccurred(type) }
+                    });
+                } else {
+                    setContext({
+                        user: { id: 123456, first_name: 'Тестер' },
+                        isLocal: true,
+                        close: () => console.log('close'),
+                        showAlert: (msg) => alert(msg),
+                        hapticFeedback: { notificationOccurred: () => {} }
+                    });
+                }
+            }, []);
+            return context;
+        }
+
+        function BottomNav({ currentPath, navigate }) {
+            const items = [
+                { path: '/', label: '🏠', name: 'Главная' },
+                { path: '/scan', label: '📷', name: 'Скан' },
+                { path: '/add', label: '+', name: 'Добавить' },
+                { path: '/diary', label: '📓', name: 'Дневник' },
+                { path: '/profile', label: '👤', name: 'Профиль' }
+            ];
+            return React.createElement('div', { className: 'bottom-nav' },
+                items.map(item => React.createElement('button', {
+                    key: item.path, className: 'nav-item', onClick: () => navigate(item.path), style: { opacity: currentPath === item.path ? 1 : 0.5 }
+                }, React.createElement('span', {}, item.label), React.createElement('span', { className: 'nav-label' }, item.name)))
+            );
+        }
+
+        function Dashboard({ profile, isLocal }) {
+            const [summary, setSummary] = React.useState({ date: '', calories: 0, protein: 0, fat: 0, carbs: 0, entries: [] });
+            React.useEffect(() => {
+                const update = () => setSummary(getTodaySummary());
+                update();
+                const interval = setInterval(update, 2000);
+                return () => clearInterval(interval);
+            }, []);
+
+            const caloriePercent = (summary.calories / profile.dailyCalorieTarget) * 100;
+            const proteinPercent = (summary.protein / profile.dailyProteinTarget) * 100;
+            const fatPercent = (summary.fat / profile.dailyFatTarget) * 100;
+            const carbsPercent = (summary.carbs / profile.dailyCarbsTarget) * 100;
+
+            return React.createElement('div', {},
+                React.createElement('h1', {}, `Привет, ${profile.name} 👋`),
+                isLocal && React.createElement('div', { className: 'dev-badge' }, 'Локальный режим разработки: Telegram API замокан'),
+                React.createElement('div', { className: 'card' },
+                    React.createElement('h3', {}, '🔥 Калории'),
+                    React.createElement('div', { className: 'progress-bar' }, React.createElement('div', { className: 'progress-fill', style: { width: `${Math.min(caloriePercent, 100)}%` } })),
+                    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between' } },
+                        React.createElement('span', {}, `${Math.round(summary.calories)} / ${profile.dailyCalorieTarget} ккал`),
+                        React.createElement('span', {}, `${caloriePercent.toFixed(0)}%`)
+                    )
+                ),
+                React.createElement('div', { className: 'card' }, React.createElement('h3', {}, '🥩 Белки'), React.createElement('div', { className: 'progress-bar' }, React.createElement('div', { className: 'progress-fill', style: { width: `${Math.min(proteinPercent, 100)}%` } })), React.createElement('div', {}, `${summary.protein.toFixed(1)} / ${profile.dailyProteinTarget} г`)),
+                React.createElement('div', { className: 'card' }, React.createElement('h3', {}, '🧈 Жиры'), React.createElement('div', { className: 'progress-bar' }, React.createElement('div', { className: 'progress-fill', style: { width: `${Math.min(fatPercent, 100)}%` } })), React.createElement('div', {}, `${summary.fat.toFixed(1)} / ${profile.dailyFatTarget} г`)),
+                React.createElement('div', { className: 'card' }, React.createElement('h3', {}, '🍚 Углеводы'), React.createElement('div', { className: 'progress-bar' }, React.createElement('div', { className: 'progress-fill', style: { width: `${Math.min(carbsPercent, 100)}%` } })), React.createElement('div', {}, `${summary.carbs.toFixed(1)} / ${profile.dailyCarbsTarget} г`))
+            );
+        }
+
+        function ScannerPage({ navigate, showAlert, hapticFeedback }) {
+            const [scanning, setScanning] = React.useState(false);
+            const scanningRef = React.useRef(false);
+            React.useEffect(() => { scanningRef.current = scanning; }, [scanning]);
+            const startScan = async () => {
+                setScanning(true);
+                showAlert('Наведите камеру на штрихкод');
+                try {
+                    const html5QrCode = new Html5Qrcode('barcode-reader');
+                    const config = { fps: 10, qrbox: { width: 250, height: 100 } };
+                    html5QrCode.start({ facingMode: 'environment' }, config, async (decodedText) => {
+                        await html5QrCode.stop();
+                        setScanning(false);
+                        const product = findProductByBarcode(decodedText);
+                        if (product) {
+                            hapticFeedback?.notificationOccurred('success');
+                            navigate('/add', { state: { product } });
+                        } else {
+                            showAlert('Продукт не найден в базе');
+                            hapticFeedback?.notificationOccurred('error');
+                        }
+                    }, () => {}).catch(() => {
+                        showAlert('Ошибка доступа к камере');
+                        setScanning(false);
+                    });
+                    setTimeout(() => {
+                        if (scanningRef.current) {
+                            html5QrCode.stop().catch(() => {});
+                            setScanning(false);
+                            showAlert('Время сканирования истекло');
+                        }
+                    }, 30000);
+                } catch (err) {
+                    showAlert('Ошибка: ' + err.message);
+                    setScanning(false);
+                }
+            };
+            return React.createElement('div', {},
+                React.createElement('h2', {}, '📷 Сканер штрихкода'),
+                React.createElement('div', { id: 'barcode-reader', style: { width: '100%', minHeight: '300px', margin: '16px 0', background: '#f0f0f0', borderRadius: '16px' } }),
+                React.createElement('button', { className: 'button', onClick: startScan, disabled: scanning }, scanning ? 'Сканирую...' : 'Начать сканирование')
+            );
+        }
+
+        function AddFoodPage({ location, navigate, showAlert, hapticFeedback }) {
+            const productFromState = location?.state?.product;
+            const [product, setProduct] = React.useState(productFromState || null);
+            const [amount, setAmount] = React.useState(productFromState?.servingSize || 100);
+            const [mealType, setMealType] = React.useState('lunch');
+            const [searchQuery, setSearchQuery] = React.useState('');
+            const [searchResults, setSearchResults] = React.useState([]);
+            React.useEffect(() => { setSearchResults(searchQuery.trim() ? searchProducts(searchQuery) : []); }, [searchQuery]);
+            const handleSave = () => {
+                if (!product) return showAlert('Выберите продукт');
+                const multiplier = amount / product.servingSize;
+                saveEntry({
+                    id: Date.now().toString() + Math.random(), productId: product.id, productName: product.name, amount,
+                    calories: Math.round(product.calories * multiplier),
+                    protein: Math.round(product.protein * multiplier * 10) / 10,
+                    fat: Math.round(product.fat * multiplier * 10) / 10,
+                    carbs: Math.round(product.carbs * multiplier * 10) / 10,
+                    timestamp: Date.now(), mealType, scanned: !!product?.barcode
+                });
+                hapticFeedback?.notificationOccurred('success');
+                navigate('/diary');
+            };
+            return React.createElement('div', {},
+                React.createElement('h2', {}, '+ Добавить прием пищи'),
+                React.createElement('div', { className: 'card' },
+                    React.createElement('input', { type: 'text', placeholder: 'Название продукта', value: searchQuery, onChange: (e) => setSearchQuery(e.target.value) }),
+                    searchResults.length > 0 && React.createElement('div', { style: { marginBottom: '16px' } }, searchResults.map(p => React.createElement('div', {
+                        key: p.id, onClick: () => { setProduct(p); setSearchQuery(p.name); setSearchResults([]); }, style: { padding: '10px', background: 'white', margin: '4px 0', borderRadius: '8px', cursor: 'pointer' }
+                    }, React.createElement('strong', {}, p.name), React.createElement('div', { style: { fontSize: '12px' } }, `${p.calories} ккал на ${p.servingSize}${p.servingUnit}`)))),
+                    product && React.createElement('div', { style: { marginTop: '16px', padding: '12px', background: 'white', borderRadius: '12px' } }, React.createElement('strong', {}, product.name)),
+                    React.createElement('label', {}, `Количество (${product?.servingUnit || 'г'}):`),
+                    React.createElement('input', { type: 'number', value: amount, onChange: (e) => setAmount(Number(e.target.value)) }),
+                    React.createElement('label', {}, 'Прием пищи:'),
+                    React.createElement('select', { value: mealType, onChange: (e) => setMealType(e.target.value) },
+                        React.createElement('option', { value: 'breakfast' }, '🍳 Завтрак'),
+                        React.createElement('option', { value: 'lunch' }, '🥗 Обед'),
+                        React.createElement('option', { value: 'dinner' }, '🍲 Ужин'),
+                        React.createElement('option', { value: 'snack' }, '🍎 Перекус')
+                    ),
+                    React.createElement('button', { className: 'button', onClick: handleSave, style: { marginTop: '20px' } }, 'Сохранить')
+                )
+            );
+        }
+
+        function DiaryPage() {
+            const [summary, setSummary] = React.useState(null);
+            React.useEffect(() => {
+                const refresh = () => setSummary(getTodaySummary());
+                refresh();
+                const interval = setInterval(refresh, 2000);
+                return () => clearInterval(interval);
+            }, []);
+            const handleDelete = (id) => { if (confirm('Удалить запись?')) deleteEntry(id); setSummary(getTodaySummary()); };
+            if (!summary) return React.createElement('div', {}, 'Загрузка...');
+            const byMeal = {
+                breakfast: summary.entries.filter(e => e.mealType === 'breakfast'),
+                lunch: summary.entries.filter(e => e.mealType === 'lunch'),
+                dinner: summary.entries.filter(e => e.mealType === 'dinner'),
+                snack: summary.entries.filter(e => e.mealType === 'snack')
+            };
+            const mealTitle = { breakfast: '🍳 Завтрак', lunch: '🥗 Обед', dinner: '🍲 Ужин', snack: '🍎 Перекус' };
+            return React.createElement('div', {},
+                React.createElement('h2', {}, '📓 Дневник питания'),
+                React.createElement('div', { className: 'card' },
+                    React.createElement('h3', {}, 'Итого за день'),
+                    React.createElement('div', {}, `🔥 ${Math.round(summary.calories)} ккал`),
+                    React.createElement('div', {}, `🥩 ${summary.protein.toFixed(1)} г белка`),
+                    React.createElement('div', {}, `🧈 ${summary.fat.toFixed(1)} г жиров`),
+                    React.createElement('div', {}, `🍚 ${summary.carbs.toFixed(1)} г углеводов`)
+                ),
+                Object.entries(byMeal).map(([meal, entries]) =>
+                    entries.length > 0 && React.createElement('div', { key: meal, className: 'card' },
+                        React.createElement('h3', {}, mealTitle[meal]),
+                        entries.map(entry => React.createElement('div', { key: entry.id, className: 'entry-item', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                            React.createElement('div', {}, React.createElement('div', { style: { fontWeight: '500' } }, `${entry.productName} — ${entry.amount} г`), React.createElement('div', { style: { fontSize: '12px', color: '#666' } }, `${entry.calories} ккал | Б:${entry.protein} Ж:${entry.fat} У:${entry.carbs}`)),
+                            React.createElement('button', { onClick: () => handleDelete(entry.id), style: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'red' } }, '🗑️')
+                        ))
+                    )
+                ),
+                summary.entries.length === 0 && React.createElement('div', { className: 'card text-center text-muted' }, 'Ничего не добавлено. Нажми «+» чтобы добавить')
+            );
+        }
+
+        function ProfilePage({ profile: initialProfile, setProfile: setParentProfile, showAlert, hapticFeedback }) {
+            const [localProfile, setLocalProfile] = React.useState(initialProfile);
+            const handleSave = () => {
+                const calories = calculateCalories(localProfile);
+                const updated = {
+                    ...localProfile,
+                    dailyCalorieTarget: calories,
+                    dailyProteinTarget: Math.round(localProfile.weight * 1.6),
+                    dailyFatTarget: Math.round(calories * 0.3 / 9),
+                    dailyCarbsTarget: Math.round(calories * 0.5 / 4)
+                };
+                saveUserProfile(updated);
+                setParentProfile(updated);
+                hapticFeedback?.notificationOccurred('success');
+                showAlert('Профиль сохранен');
+            };
+            return React.createElement('div', {},
+                React.createElement('h2', {}, '👤 Профиль'),
+                React.createElement('div', { className: 'card' },
+                    React.createElement('label', {}, 'Имя'),
+                    React.createElement('input', { type: 'text', value: localProfile.name, onChange: (e) => setLocalProfile({ ...localProfile, name: e.target.value }) }),
+                    React.createElement('label', {}, 'Вес (кг)'),
+                    React.createElement('input', { type: 'number', value: localProfile.weight, onChange: (e) => setLocalProfile({ ...localProfile, weight: Number(e.target.value) }) }),
+                    React.createElement('label', {}, 'Рост (см)'),
+                    React.createElement('input', { type: 'number', value: localProfile.height, onChange: (e) => setLocalProfile({ ...localProfile, height: Number(e.target.value) }) }),
+                    React.createElement('label', {}, 'Возраст'),
+                    React.createElement('input', { type: 'number', value: localProfile.age, onChange: (e) => setLocalProfile({ ...localProfile, age: Number(e.target.value) }) }),
+                    React.createElement('label', {}, 'Активность'),
+                    React.createElement('select', { value: localProfile.activityLevel, onChange: (e) => setLocalProfile({ ...localProfile, activityLevel: e.target.value }) },
+                        React.createElement('option', { value: 'sedentary' }, 'Сидячий образ жизни'),
+                        React.createElement('option', { value: 'light' }, 'Легкая активность'),
+                        React.createElement('option', { value: 'moderate' }, 'Умеренная'),
+                        React.createElement('option', { value: 'active' }, 'Активная'),
+                        React.createElement('option', { value: 'extreme' }, 'Очень высокая')
+                    ),
+                    React.createElement('label', {}, 'Цель'),
+                    React.createElement('select', { value: localProfile.goal, onChange: (e) => setLocalProfile({ ...localProfile, goal: e.target.value }) },
+                        React.createElement('option', { value: 'lose' }, '🏃‍♂️ Похудение'),
+                        React.createElement('option', { value: 'maintain' }, '⚖️ Поддержание'),
+                        React.createElement('option', { value: 'gain' }, '💪 Набор массы')
+                    ),
+                    React.createElement('button', { className: 'button', onClick: handleSave, style: { marginTop: '20px' } }, 'Сохранить настройки')
+                )
+            );
+        }
+
+        function App() {
+            const telegram = useTelegram();
+            const [profile, setProfile] = React.useState(null);
+            const [currentPath, setCurrentPath] = React.useState(getPathFromLocation());
+            const [locationState, setLocationState] = React.useState(null);
+
+            React.useEffect(() => {
+                const onHashChange = () => setCurrentPath(getPathFromLocation());
+                window.addEventListener('hashchange', onHashChange);
+                if (!window.location.hash) setPathToLocation('/');
+                return () => window.removeEventListener('hashchange', onHashChange);
+            }, []);
+
+            React.useEffect(() => {
+                if (!telegram?.user) return;
+                let saved = getUserProfile();
+                if (!saved) {
+                    saved = {
+                        telegramId: telegram.user.id,
+                        name: telegram.user.first_name || 'Пользователь',
+                        age: 30, weight: 70, height: 170,
+                        activityLevel: 'moderate', goal: 'maintain', allergies: [],
+                        dailyCalorieTarget: 2200, dailyProteinTarget: 130, dailyFatTarget: 73, dailyCarbsTarget: 275
+                    };
+                    saved.dailyCalorieTarget = calculateCalories(saved);
+                    saved.dailyProteinTarget = Math.round(saved.weight * 1.6);
+                    saved.dailyFatTarget = Math.round(saved.dailyCalorieTarget * 0.3 / 9);
+                    saved.dailyCarbsTarget = Math.round(saved.dailyCalorieTarget * 0.5 / 4);
+                    saveUserProfile(saved);
+                }
+                setProfile(saved);
+            }, [telegram]);
+
+            const navigate = (path, state) => {
+                setCurrentPath(path);
+                if (state) setLocationState(state);
+                setPathToLocation(path);
+            };
+
+            const renderPage = () => {
+                if (!profile) return React.createElement('div', { className: 'container text-center' }, 'Загрузка...');
+                switch (currentPath) {
+                    case '/': return React.createElement(Dashboard, { profile, isLocal: telegram?.isLocal });
+                    case '/scan': return React.createElement(ScannerPage, { navigate, showAlert: telegram?.showAlert, hapticFeedback: telegram?.hapticFeedback });
+                    case '/add': return React.createElement(AddFoodPage, { location: { state: locationState }, navigate, showAlert: telegram?.showAlert, hapticFeedback: telegram?.hapticFeedback });
+                    case '/diary': return React.createElement(DiaryPage, null);
+                    case '/profile': return React.createElement(ProfilePage, { profile, setProfile, showAlert: telegram?.showAlert, hapticFeedback: telegram?.hapticFeedback });
+                    default: return React.createElement(Dashboard, { profile, isLocal: telegram?.isLocal });
+                }
+            };
+
+            return React.createElement('div', { className: 'container' }, renderPage(), React.createElement(BottomNav, { currentPath, navigate }));
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
+    </script>
+</body>
+</html>
