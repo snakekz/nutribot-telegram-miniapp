@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>NutriBot — КБЖУ трекер с Premium подпиской</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f5f5f7;
+            --bg-card: rgba(255, 255, 255, 0.95);
+            --text-primary: #1a1a2e;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --progress-bg: rgba(0, 0, 0, 0.1);
+            --nav-bg: rgba(255, 255, 255, 0.95);
+            --input-bg: #ffffff;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --accent: #4caf50;
+            --accent-gradient: linear-gradient(135deg, #4caf50, #45a049);
+            --premium-gradient: linear-gradient(135deg, #ffd700, #ff8c00);
+            --user-msg: #e3f2fd;
+            --bot-msg: #f5f5f5;
+        }
+
+        body.dark {
+            --bg-primary: #1a1a2e;
+            --bg-card: rgba(30, 30, 46, 0.95);
+            --text-primary: #eeeeee;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-muted: rgba(255, 255, 255, 0.5);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --progress-bg: rgba(255, 255, 255, 0.15);
+            --nav-bg: rgba(20, 20, 35, 0.95);
+            --input-bg: rgba(20, 20, 35, 0.95);
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            --user-msg: #2c3e50;
+            --bot-msg: #1a1a2e;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding-bottom: 70px;
+            transition: all 0.3s ease;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .button {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .button:active { transform: scale(0.98); opacity: 0.8; }
+        .button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .premium-button {
+            background: var(--premium-gradient);
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .progress-bar {
+            background: var(--progress-bg);
+            border-radius: 12px;
+            height: 8px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .progress-fill {
+            background: var(--accent-gradient);
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        input, select, textarea {
+            background: var(--input-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 12px;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 8px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+
+        h1, h2, h3 { margin-bottom: 16px; }
+        h1 { background: var(--accent-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; display: inline-block; }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--nav-bg);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0 12px;
+            max-width: 600px;
+            margin: 0 auto;
+            z-index: 100;
+        }
+
+        .nav-item {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            font-family: inherit;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .nav-item:active { transform: scale(0.95); }
+        .nav-label { font-size: 10px; color: var(--text-muted); }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .text-center { text-align: center; }
+        .text-muted { color: var(--text-muted); }
+
+        .theme-switch {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 200;
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 8px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        /* Premium badge */
+        .premium-badge {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Тарифы */
+        .plan-card {
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .plan-card:hover {
+            transform: translateY(-4px);
+        }
+        .plan-card-premium {
+            border-color: #ffd700;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 140, 0, 0.05));
+        }
+        .plan-price {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        .plan-old-price {
+            text-decoration: line-through;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* Чат */
+        .chat-container {
+            height: 300px;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-radius: 16px;
+            background: var(--bg-primary);
+        }
+        .message {
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            animation: fadeIn 0.3s;
+        }
+        .user-message {
+            background: var(--accent);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .bot-message {
+            background: var(--bot-msg);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+        .quick-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .input-area {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .input-area input { flex: 1; margin: 0; }
+        .input-area button { width: auto; padding: 12px 20px; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        (function() {
+            // ========== БАЗА ПРОДУКТОВ ==========
+            const PRODUCTS_DB = [
+                { id: '1', name: 'Куриная грудка вареная', calories: 165, protein: 31, fat: 3.6, carbs: 0, servingSize: 100, unit: 'г' },
+                { id: '2', name: 'Гречка отварная', calories: 110, protein: 3.6, fat: 1.3, carbs: 21, servingSize: 100, unit: 'г' },
+                { id: '3', name: 'Лосось', calories: 208, protein: 20, fat: 13, carbs: 0, servingSize: 100, unit: 'г' },
+                { id: '4', name: 'Яблоко', calories: 52, protein: 0.3, fat: 0.2, carbs: 14, servingSize: 1, unit: 'шт' },
+                { id: '5', name: 'Творог 5%', calories: 121, protein: 15, fat: 5, carbs: 3, servingSize: 100, unit: 'г' },
+                { id: '6', name: 'Рис отварной', calories: 130, protein: 2.7, fat: 0.3, carbs: 28, servingSize: 100, unit: 'г' },
+                { id: '7', name: 'Яйцо вареное', calories: 155, protein: 13, fat: 11, carbs: 0.7, servingSize: 1, unit: 'шт' },
+                { id: '8', name: 'Авокадо', calories: 160, protein: 2, fat: 15, carbs: 9, servingSize: 100, unit: 'г' },
+                { id: '9', name: 'Брокколи', calories: 34, protein: 2.8, fat: 0.4, carbs: 7, servingSize: 100, unit: 'г' },
+                { id: '10', name: 'Банан', calories: 89, protein: 1.1, fat: 0.3, carbs: 23, servingSize: 1, unit: 'шт' },
+                { id: '11', name: 'Индейка филе', calories: 135, protein: 29, fat: 1.5, carbs: 0, servingSize: 100, unit: 'г' },
+                { id: '12', name: 'Овсянка на воде', calories: 68, protein: 2.4, fat: 1.4, carbs: 12, servingSize: 100, unit: 'г' }
+            ];
+
+            function findProductById(id) { return PRODUCTS_DB.find(p => p.id === id); }
+            function searchProducts(q) { return PRODUCTS_DB.filter(p => p.name.toLowerCase().includes(q.toLowerCase())); }
+
+            // ========== СИСТЕМА ПОДПИСОК ==========
+            const PLANS = [
+                { id: 'trial', name: '🔥 Пробный период', days: 3, priceStars: 0, popular: false, description: '3 дня бесплатного Premium' },
+                { id: 'month', name: '💎 1 месяц', days: 30, priceStars: 150, popular: false, description: 'Полный доступ на 30 дней', oldPrice: 299 },
+                { id: '3months', name: '💎💎 3 месяца', days: 90, priceStars: 400, popular: true, description: 'Экономия 50 звезд', oldPrice: 450 },
+                { id: '6months', name: '💎💎💎 6 месяцев', days: 180, priceStars: 750, popular: false, description: 'Экономия 150 звезд', oldPrice: 900 },
+                { id: 'year', name: '👑 12 месяцев', days: 365, priceStars: 1400, popular: false, description: 'Максимальная выгода!', oldPrice: 1800 }
+            ];
+
+            // Загрузка статуса подписки
+            function getSubscription() {
+                return loadData('nutribot_subscription', { isPremium: false, planId: null, expiresAt: null, trialUsed: false });
+            }
+
+            function saveSubscription(sub) {
+                saveData('nutribot_subscription', sub);
+            }
+
+            function checkSubscriptionStatus() {
+                const sub = getSubscription();
+                if (!sub.isPremium) return false;
+                if (sub.expiresAt && new Date(sub.expiresAt) < new Date()) {
+                    // Подписка истекла
+                    saveSubscription({ isPremium: false, planId: null, expiresAt: null, trialUsed: sub.trialUsed });
+                    return false;
+                }
+                return true;
+            }
+
+            function activateSubscription(planId, days) {
+                const sub = getSubscription();
+                const expiresAt = new Date();
+                expiresAt.setDate(expiresAt.getDate() + days);
+                saveSubscription({
+                    isPremium: true,
+                    planId: planId,
+                    expiresAt: expiresAt.toISOString(),
+                    trialUsed: sub.trialUsed || (planId === 'trial')
+                });
+                return true;
+            }
+
+            function startTrial() {
+                const sub = getSubscription();
+                if (sub.trialUsed) return false;
+                activateSubscription('trial', 3);
+                return true;
+            }
+
+            function getDaysLeft() {
+                const sub = getSubscription();
+                if (!sub.isPremium || !sub.expiresAt) return 0;
+                const diff = new Date(sub.expiresAt) - new Date();
+                return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+            }
+
+            // ========== ОГРАНИЧЕНИЯ ПО ПОДПИСКЕ ==========
+            function canAddEntry() {
+                const entries = getEntries();
+                const today = new Date().toISOString().split('T')[0];
+                const todayEntries = entries.filter(e => new Date(e.timestamp).toISOString().split('T')[0] === today);
+                if (checkSubscriptionStatus()) return true; // Premium — безлимит
+                return todayEntries.length < 10; // Бесплатно — 10 записей в день
+            }
+
+            function canUseAssistant() {
+                const chat = loadData('nutribot_chat', []);
+                const today = new Date().toISOString().split('T')[0];
+                const todayMessages = chat.filter(m => new Date(m.timestamp).toISOString().split('T')[0] === today && m.role === 'user');
+                if (checkSubscriptionStatus()) return true; // Premium — безлимит
+                return todayMessages.length < 5; // Бесплатно — 5 вопросов в день
+            }
+
+            // ========== ХРАНИЛИЩЕ ==========
+            function saveData(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+            function loadData(key, def) { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : def; }
+
+            function getEntries() { return loadData('nutribot_entries', []); }
+            function saveEntry(entry) {
+                if (!canAddEntry()) {
+                    showAlert('⚠️ Бесплатный лимит: 10 записей в день. Оформите Premium для безлимита!');
+                    return false;
+                }
+                const entries = getEntries();
+                entries.push(entry);
+                saveData('nutribot_entries', entries);
+                updateStreak();
+                return true;
+            }
+            function deleteEntry(id) { saveData('nutribot_entries', getEntries().filter(e => e.id !== id)); updateStreak(); }
+
+            function getTodaySummary() {
+                const today = new Date().toISOString().split('T')[0];
+                const entries = getEntries().filter(e => new Date(e.timestamp).toISOString().split('T')[0] === today);
+                return {
+                    calories: entries.reduce((s,e) => s + e.calories, 0),
+                    protein: entries.reduce((s,e) => s + e.protein, 0),
+                    fat: entries.reduce((s,e) => s + e.fat, 0),
+                    carbs: entries.reduce((s,e) => s + e.carbs, 0),
+                    entries
+                };
+            }
+
+            function updateStreak() {
+                const entries = getEntries();
+                if (entries.length === 0) return 0;
+                const dates = [...new Set(entries.map(e => new Date(e.timestamp).toISOString().split('T')[0]))].sort();
+                let streak = 1;
+                for (let i = dates.length - 1; i > 0; i--) {
+                    const diff = (new Date(dates[i]) - new Date(dates[i-1])) / (1000*60*60*24);
+                    if (diff === 1) streak++;
+                    else break;
+                }
+                saveData('nutribot_streak', streak);
+                return streak;
+            }
+
+            // ========== ПРОФИЛЬ ==========
+            function getUserProfile() { return loadData('nutribot_profile', null); }
+            function saveUserProfile(p) { saveData('nutribot_profile', p); }
+
+            function calculateCalories(profile) {
+                let bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age;
+                bmr += profile.telegramId % 2 === 0 ? 5 : -161;
+                const act = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, extreme: 1.9 };
+                let tdee = bmr * (act[profile.activityLevel] || 1.55);
+                if (profile.goal === 'lose') return Math.round(tdee * 0.85);
+                if (profile.goal === 'gain') return Math.round(tdee * 1.1);
+                return Math.round(tdee);
+            }
+
+            // ========== АССИСТЕНТ ==========
+            let chatHistory = loadData('nutribot_chat', []);
+            let isTyping = false;
+            function saveChatHistory() { saveData('nutribot_chat', chatHistory); }
+
+            function getPersonalizedAdvice(question, profile, summary) {
+                const lowerQ = question.toLowerCase();
+                const deficit = profile.dailyCalorieTarget - summary.calories;
+                const proteinLeft = profile.dailyProteinTarget - summary.protein;
+                
+                if (lowerQ.includes('как прошёл') || lowerQ.includes('сегодня')) {
+                    if (deficit > 300) return `📊 Сегодня вы съели ${Math.round(summary.calories)}/${profile.dailyCalorieTarget} ккал. Дефицит ${deficit} ккал — отличный темп! 🎉`;
+                    if (deficit < -200) return `⚠️ Сегодня перебор на ${-deficit} ккал. Не страшно, завтра новый день!`;
+                    return `📊 Сегодня ${Math.round(summary.calories)}/${profile.dailyCalorieTarget} ккал. Баланс отличный! 🎯`;
+                }
+                if (lowerQ.includes('белок')) {
+                    return `🥩 Ваша норма белка: ${profile.dailyProteinTarget} г/день. Сейчас вы съели ${summary.protein.toFixed(0)} г. ${proteinLeft > 0 ? `Осталось ${proteinLeft.toFixed(0)} г.` : '✅ Норма выполнена!'}`;
+                }
+                if (lowerQ.includes('вода') || lowerQ.includes('пить')) {
+                    const waterNorm = Math.round(profile.weight * 30);
+                    return `💧 Ваша норма воды: ${waterNorm} мл в день (30 мл/кг). Пейте маленькими глотками!`;
+                }
+                if (lowerQ.includes('что съесть') || lowerQ.includes('перекус')) {
+                    const suggestions = ['🍎 Яблоко + горсть орехов', '🥛 Стакан кефира', '🍌 Банан + ложка арахисовой пасты', '🥚 2 варёных яйца', '🥗 Творог с зеленью'];
+                    return `🍽️ Идеи для перекуса:\n${suggestions[Math.floor(Math.random() * suggestions.length)]} (~150-200 ккал)`;
+                }
+                if (lowerQ.includes('мотивация')) {
+                    const quotes = ['🔥 Ты уже на пути к цели! Каждый день — победа.', '💪 Представь себя через 3 месяца. Ты скажешь спасибо себе!', '🌟 Маленькие шаги каждый день = большие результаты.'];
+                    return quotes[Math.floor(Math.random() * quotes.length)];
+                }
+                return null;
+            }
+
+            async function sendMessage(message, profile, summary, updateUI) {
+                if (!message.trim()) return;
+                if (!canUseAssistant() && !checkSubscriptionStatus()) {
+                    showAlert('⚠️ Бесплатный лимит: 5 вопросов в день. Оформите Premium для безлимитных консультаций!');
+                    return;
+                }
+                chatHistory.push({ role: 'user', text: message, timestamp: Date.now() });
+                saveChatHistory();
+                updateUI();
+                isTyping = true;
+                updateUI();
+                await new Promise(r => setTimeout(r, 800));
+                let botResponse = getPersonalizedAdvice(message, profile, summary);
+                if (!botResponse) {
+                    botResponse = `🤖 Я ваш персональный диетолог! Могу помочь с:\n• Анализом дня ("как прошёл день")\n• Нормой белка, воды\n• Идеями перекусов\n• Мотивацией\n\nЧто вас интересует?`;
+                }
+                chatHistory.push({ role: 'assistant', text: botResponse, timestamp: Date.now() });
+                saveChatHistory();
+                isTyping = false;
+                updateUI();
+            }
+
+            function clearChat() { chatHistory = []; saveChatHistory(); renderAssistant(); }
+
+            // ========== TELEGRAM PAYMENT (Telegram Stars) ==========
+            const tg = window.Telegram?.WebApp;
+            if (tg) { tg.expand(); tg.ready(); }
+            
+            function showAlert(msg) { tg ? tg.showAlert(msg) : alert(msg); }
+            function haptic(t) { if (tg?.Haptics) tg.Haptics.notificationOccurred(t); }
+
+            // Функция покупки (имитация — в реальном проекте здесь будет вызов createInvoice)
+            function purchasePlan(plan) {
+                if (plan.id === 'trial') {
+                    if (startTrial()) {
+                        showAlert('🎉 Пробный период активирован! Premium доступ на 3 дня.');
+                        haptic('success');
+                        render();
+                    } else {
+                        showAlert('❌ Вы уже использовали пробный период.');
+                    }
+                    return;
+                }
+                // В реальном проекте здесь будет:
+                // 1. Запрос к бэкенду /api/create-invoice
+                // 2. tg.openInvoice(invoiceLink, callback)
+                showAlert(`⭐ Оплата ${plan.priceStars} Telegram Stars\n\nВ демо-режиме подписка активируется бесплатно. В реальном проекте здесь будет оплата через Telegram Stars!`);
+                // Для демо активируем бесплатно:
+                activateSubscription(plan.id, plan.days);
+                showAlert(`✅ Подписка "${plan.name}" активирована до ${new Date(getSubscription().expiresAt).toLocaleDateString()}`);
+                haptic('success');
+                render();
+            }
+
+            // ========== ТЕМА ==========
+            function setTheme(theme) {
+                if (theme === 'dark') document.body.classList.add('dark');
+                else document.body.classList.remove('dark');
+                localStorage.setItem('nutribot_theme', theme);
+            }
+
+            // ========== РОУТИНГ ==========
+            let currentRoute = '/';
+            let appState = { profile: null, selectedProduct: null, searchQuery: '' };
+            function navigate(route, state) { currentRoute = route; if (state?.selectedProduct) appState.selectedProduct = state.selectedProduct; render(); }
+
+            // ========== СТРАНИЦЫ ==========
+            function renderDashboard() {
+                const p = appState.profile;
+                if (!p) return '<div class="container">Загрузка...</div>';
+                const summary = getTodaySummary();
+                const streak = loadData('nutribot_streak', 0);
+                const calPct = (summary.calories / p.dailyCalorieTarget) * 100;
+                const isPremium = checkSubscriptionStatus();
+                const daysLeft = getDaysLeft();
+                const entryLimit = isPremium ? '∞' : `${10 - getEntries().filter(e => new Date(e.timestamp).toISOString().split('T')[0] === new Date().toISOString().split('T')[0]).length}/10`;
+                const chatLimit = isPremium ? '∞' : `${5 - chatHistory.filter(m => new Date(m.timestamp).toISOString().split('T')[0] === new Date().toISOString().split('T')[0] && m.role === 'user').length}/5`;
+
+                return `
+                    <div class="container">
+                        <div class="flex-between" style="margin-bottom: 16px;">
+                            <h1>🍎 Привет, ${escapeHtml(p.name)}!</h1>
+                            <div class="flex-between" style="gap: 8px;">
+                                ${isPremium ? `<span class="premium-badge">⭐ PREMIUM ${daysLeft > 0 ? `(ост. ${daysLeft} дн.)` : ''}</span>` : '<span class="premium-badge" style="background: #666;">🔓 Бесплатно</span>'}
+                            </div>
+                        </div>
+                        <div class="card" style="background: var(--accent-gradient); color: white; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold;">${Math.round(summary.calories)}/${p.dailyCalorieTarget}</div>
+                            <div class="progress-bar" style="background: rgba(255,255,255,0.3);"><div class="progress-fill" style="background: white; width: ${Math.min(calPct,100)}%"></div></div>
+                            <div class="flex-between" style="margin-top: 12px;">
+                                <span>🥩 ${summary.protein.toFixed(0)}/${p.dailyProteinTarget}</span>
+                                <span>🧈 ${summary.fat.toFixed(0)}/${p.dailyFatTarget}</span>
+                                <span>🍚 ${summary.carbs.toFixed(0)}/${p.dailyCarbsTarget}</span>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="flex-between" style="margin-bottom: 8px;">
+                                <span>📊 Лимиты: записи ${entryLimit} | вопросы ${chatLimit}</span>
+                                ${!isPremium ? '<span class="premium-badge" style="cursor:pointer;" id="upgradeBtn">💎 Premium</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="flex-between" style="margin-bottom: 12px;">
+                                <h3>🤖 ИИ-диетолог</h3>
+                                <button id="clearChatBtn" style="background: none; border: none; color: var(--text-muted); cursor: pointer;">🗑️</button>
+                            </div>
+                            <div id="assistantChat" class="chat-container" style="height: 280px;"></div>
+                            <div class="quick-actions" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+                                <div class="quick-btn" data-msg="как прошёл день">📊 День</div>
+                                <div class="quick-btn" data-msg="сколько белка нужно">🥩 Белок</div>
+                                <div class="quick-btn" data-msg="норма воды">💧 Вода</div>
+                                <div class="quick-btn" data-msg="что съесть на перекус">🍎 Перекус</div>
+                                <div class="quick-btn" data-msg="мотивация">🌟 Мотивация</div>
+                            </div>
+                            <div class="input-area">
+                                <input type="text" id="assistantInput" placeholder="Спросите о питании...">
+                                <button id="sendBtn" class="button">➤</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function renderAssistant() {
+                const chatDiv = document.getElementById('assistantChat');
+                if (!chatDiv) return;
+                let html = '';
+                for (const msg of chatHistory) {
+                    if (msg.role === 'user') html += `<div class="message user-message">${escapeHtml(msg.text)}</div>`;
+                    else html += `<div class="message bot-message">🤖 ${escapeHtml(msg.text).replace(/\n/g, '<br>')}</div>`;
+                }
+                if (isTyping) html += `<div class="message bot-message" style="font-style:italic;">🤖 Печатает...</div>`;
+                if (chatHistory.length === 0 && !isTyping) html = `<div class="message bot-message">🤖 Привет! Я ИИ-диетолог. Спрашивайте: как прошёл день, белок, вода, перекусы, мотивация!</div>`;
+                chatDiv.innerHTML = html;
+                chatDiv.scrollTop = chatDiv.scrollHeight;
+            }
+
+            function renderPremiumPage() {
+                const isPremium = checkSubscriptionStatus();
+                const sub = getSubscription();
+                return `
+                    <div class="container">
+                        <h2>💎 Premium NutriBot</h2>
+                        ${isPremium ? `
+                            <div class="card text-center" style="background: var(--premium-gradient); color: #333;">
+                                <div style="font-size: 48px;">⭐</div>
+                                <h3>У вас уже есть Premium!</h3>
+                                <p>Действует до ${new Date(sub.expiresAt).toLocaleDateString()}</p>
+                                <p>Осталось ${getDaysLeft()} дней</p>
+                                <button class="button" id="extendBtn" style="background: white; color: #333;">Продлить подписку</button>
+                            </div>
+                        ` : `
+                            <div class="card text-center">
+                                <div style="font-size: 48px;">🚀</div>
+                                <h3>Premium возможности:</h3>
+                                <ul style="text-align: left; margin: 16px 0; padding-left: 20px;">
+                                    <li>✓ Безлимит записей питания</li>
+                                    <li>✓ Безлимит вопросов ИИ-диетологу</li>
+                                    <li>✓ Расширенная аналитика</li>
+                                    <li>✓ Приоритетная поддержка</li>
+                                    <li>✓ Экспорт данных</li>
+                                </ul>
+                            </div>
+                        `}
+                        ${PLANS.filter(p => p.id !== 'trial' || !sub.trialUsed).map(plan => `
+                            <div class="card plan-card ${plan.popular ? 'plan-card-premium' : ''}">
+                                <div class="flex-between">
+                                    <h3>${plan.name}</h3>
+                                    ${plan.popular ? '<span class="premium-badge">🔥 Популярный</span>' : ''}
+                                </div>
+                                <p class="text-muted" style="margin-bottom: 12px;">${plan.description}</p>
+                                <div class="flex-between">
+                                    <div>
+                                        <span class="plan-price">${plan.priceStars} 🌟</span>
+                                        ${plan.oldPrice ? `<span class="plan-old-price"> ${plan.oldPrice} 🌟</span>` : ''}
+                                    </div>
+                                    <button class="button plan-buy-btn" data-plan-id="${plan.id}" style="width: auto; padding: 10px 20px;">Выбрать</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                        <div class="card text-center text-muted" style="font-size: 12px;">
+                            💳 Оплата через Telegram Stars — быстро и безопасно
+                        </div>
+                    </div>
+                `;
+            }
+
+            function renderAddFood() {
+                const product = appState.selectedProduct;
+                const results = appState.searchQuery ? searchProducts(appState.searchQuery) : [];
+                const isPremium = checkSubscriptionStatus();
+                const todayEntries = getEntries().filter(e => new Date(e.timestamp).toISOString().split('T')[0] === new Date().toISOString().split('T')[0]).length;
+                const limitReached = !isPremium && todayEntries >= 10;
+                
+                return `
+                    <div class="container">
+                        <h2>➕ Добавить</h2>
+                        ${limitReached ? `<div class="card" style="background: #ff6b6b20; border-color: #ff6b6b;"><div class="flex-between"><span>⚠️ Достигнут лимит 10 записей в день</span><button class="button" id="upgradeFromAddBtn" style="width: auto; padding: 8px 16px;">💎 Premium</button></div></div>` : ''}
+                        <div class="card">
+                            <input type="text" id="searchProduct" placeholder="Поиск продуктов..." value="${escapeHtml(appState.searchQuery)}" ${limitReached ? 'disabled' : ''}>
+                            <div id="searchResults">${results.map(p => `<div class="search-result" data-id="${p.id}" style="padding:12px; border-bottom:1px solid var(--border-color); cursor:pointer;"><strong>${escapeHtml(p.name)}</strong><div class="text-muted">🔥 ${p.calories} ккал | 🥩 ${p.protein}г | 🧈 ${p.fat}г | 🍚 ${p.carbs}г</div></div>`).join('')}</div>
+                            ${product ? `<div style="padding:12px; background:var(--accent-gradient); border-radius:14px; color:white; margin:12px 0;"><strong>${escapeHtml(product.name)}</strong><div>${product.calories} ккал на ${product.servingSize}${product.unit}</div></div>` : '<div class="text-muted" style="padding:12px;">💡 Начните вводить название</div>'}
+                            <label>Количество (${product?.unit || 'г'}):</label>
+                            <input type="number" id="amount" value="${product?.servingSize || 100}" ${!product || limitReached ? 'disabled' : ''}>
+                            <label>Приём пищи:</label>
+                            <select id="mealType" ${limitReached ? 'disabled' : ''}><option value="breakfast">🍳 Завтрак</option><option value="lunch">🥗 Обед</option><option value="dinner">🍲 Ужин</option><option value="snack">🍎 Перекус</option></select>
+                            <button class="button" id="saveBtn" ${!product || limitReached ? 'disabled' : ''}>💾 Сохранить</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function renderDiary() {
+                const summary = getTodaySummary();
+                const meals = { breakfast: '🍳 Завтрак', lunch: '🥗 Обед', dinner: '🍲 Ужин', snack: '🍎 Перекус' };
+                let html = `<div class="container"><h2>📓 Дневник</h2><div class="card"><h3>📊 Итого</h3><div>🔥 ${Math.round(summary.calories)} ккал</div><div>🥩 ${summary.protein.toFixed(1)}г 🧈 ${summary.fat.toFixed(1)}г 🍚 ${summary.carbs.toFixed(1)}г</div></div>`;
+                for (const [type, name] of Object.entries(meals)) {
+                    const entries = summary.entries.filter(e => e.mealType === type);
+                    if (entries.length) {
+                        html += `<div class="card"><h3>${name}</h3>${entries.map(e => `<div class="flex-between" style="padding:8px 0; border-bottom:1px solid var(--border-color);"><div><div>${escapeHtml(e.productName)} — ${e.amount} г</div><div class="text-muted" style="font-size:12px">${e.calories} ккал | Б:${e.protein} Ж:${e.fat} У:${e.carbs}</div></div><button class="delete-btn" data-id="${e.id}" style="background:none; border:none; color:#ff6b6b; font-size:20px; cursor:pointer;">🗑️</button></div>`).join('')}</div>`;
+                    }
+                }
+                html += (summary.entries.length === 0 ? '<div class="card text-center text-muted">Пусто</div>' : '') + '</div>';
+                return html;
+            }
+
+            function renderProfile() {
+                const p = appState.profile;
+                return `
+                    <div class="container">
+                        <h2>👤 Профиль</h2>
+                        <div class="card">
+                            <label>Имя</label><input id="name" value="${escapeHtml(p.name)}">
+                            <label>Вес (кг)</label><input id="weight" type="number" value="${p.weight}">
+                            <label>Рост (см)</label><input id="height" type="number" value="${p.height}">
+                            <label>Возраст</label><input id="age" type="number" value="${p.age}">
+                            <label>Активность</label><select id="activity"><option value="sedentary">🛋️ Сидячий</option><option value="light">🚶 Лёгкая</option><option value="moderate" selected>🏃 Умеренная</option><option value="active">💪 Активная</option><option value="extreme">🔥 Очень высокая</option></select>
+                            <label>Цель</label><select id="goal"><option value="lose">🏃 Похудение</option><option value="maintain">⚖️ Поддержание</option><option value="gain">💪 Набор массы</option></select>
+                            <button class="button" id="saveProfileBtn">💾 Сохранить</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function renderScanner() {
+                return `<div class="container"><h2>📷 Сканер</h2><div id="barcode-reader" style="min-height:300px; background:var(--progress-bg); border-radius:20px; display:flex; align-items:center; justify-content:center;"><div style="text-align:center">📱 Нажмите "Сканировать"</div></div><button class="button" id="startScanBtn">🎥 Сканировать</button></div>`;
+            }
+
+            function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
+
+            // ========== ИНИТЫ СТРАНИЦ ==========
+            function initAssistant() {
+                const input = document.getElementById('assistantInput');
+                const sendBtn = document.getElementById('sendBtn');
+                const clearBtn = document.getElementById('clearChatBtn');
+                const quickBtns = document.querySelectorAll('.quick-btn');
+                const p = appState.profile;
+                const summary = getTodaySummary();
+                if (!p) return;
+                const send = async () => {
+                    const msg = input.value.trim();
+                    if (!msg) return;
+                    input.value = '';
+                    await sendMessage(msg, p, summary, () => renderAssistant());
+                };
+                if (sendBtn) sendBtn.onclick = send;
+                if (input) input.onkeypress = (e) => { if (e.key === 'Enter') send(); };
+                if (clearBtn) clearBtn.onclick = () => { clearChat(); renderAssistant(); };
+                quickBtns.forEach(btn => {
+                    btn.onclick = async () => { await sendMessage(btn.dataset.msg, p, summary, () => renderAssistant()); };
+                });
+                renderAssistant();
+            }
+
+            function initAddFood() {
+                const searchInput = document.getElementById('searchProduct');
+                if (!searchInput) return;
+                searchInput.oninput = () => { appState.searchQuery = searchInput.value; render(); };
+                document.querySelectorAll('.search-result').forEach(el => {
+                    el.onclick = () => { appState.selectedProduct = PRODUCTS_DB.find(p => p.id === el.dataset.id); render(); };
+                });
+                const saveBtn = document.getElementById('saveBtn');
+                if (saveBtn) saveBtn.onclick = () => {
+                    const p = appState.selectedProduct;
+                    if (!p) return showAlert('Выберите продукт');
+                    const amount = parseFloat(document.getElementById('amount')?.value || 100);
+                    const mealType = document.getElementById('mealType')?.value || 'lunch';
+                    const mult = amount / p.servingSize;
+                    const success = saveEntry({
+                        id: Date.now() + '_' + Math.random(),
+                        productId: p.id, productName: p.name, amount,
+                        calories: Math.round(p.calories * mult),
+                        protein: Math.round(p.protein * mult * 10)/10,
+                        fat: Math.round(p.fat * mult * 10)/10,
+                        carbs: Math.round(p.carbs * mult * 10)/10,
+                        timestamp: Date.now(), mealType, scanned: false
+                    });
+                    if (success) {
+                        haptic('success');
+                        appState.selectedProduct = null; appState.searchQuery = '';
+                        navigate('/diary');
+                    }
+                };
+                const upgradeBtn = document.getElementById('upgradeFromAddBtn');
+                if (upgradeBtn) upgradeBtn.onclick = () => navigate('/premium');
+            }
+
+            function initDiary() {
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.onclick = () => { deleteEntry(btn.dataset.id); render(); };
+                });
+            }
+
+            function initProfile() {
+                const saveBtn = document.getElementById('saveProfileBtn');
+                if (saveBtn) saveBtn.onclick = () => {
+                    const updated = { ...appState.profile,
+                        name: document.getElementById('name')?.value || 'User',
+                        weight: parseFloat(document.getElementById('weight')?.value || 70),
+                        height: parseFloat(document.getElementById('height')?.value || 170),
+                        age: parseInt(document.getElementById('age')?.value || 30),
+                        activityLevel: document.getElementById('activity')?.value || 'moderate',
+                        goal: document.getElementById('goal')?.value || 'maintain'
+                    };
+                    updated.dailyCalorieTarget = calculateCalories(updated);
+                    updated.dailyProteinTarget = Math.round(updated.weight * 1.6);
+                    updated.dailyFatTarget = Math.round(updated.dailyCalorieTarget * 0.3 / 9);
+                    updated.dailyCarbsTarget = Math.round(updated.dailyCalorieTarget * 0.5 / 4);
+                    saveUserProfile(updated);
+                    appState.profile = updated;
+                    showAlert('✅ Сохранено!');
+                    navigate('/');
+                };
+            }
+
+            function initPremiumPage() {
+                const buyBtns = document.querySelectorAll('.plan-buy-btn');
+                buyBtns.forEach(btn => {
+                    const planId = btn.dataset.planId;
+                    const plan = PLANS.find(p => p.id === planId);
+                    if (plan) btn.onclick = () => purchasePlan(plan);
+                });
+                const extendBtn = document.getElementById('extendBtn');
+                if (extendBtn) extendBtn.onclick = () => purchasePlan(PLANS.find(p => p.id === 'month'));
+            }
+
+            let scannerInstance = null;
+            async function initScanner() {
+                const btn = document.getElementById('startScanBtn');
+                if (!btn) return;
+                btn.onclick = async () => {
+                    try {
+                        const Html5Qrcode = window.html5Qrcode;
+                        if (!Html5Qrcode) return showAlert('Библиотека не загружена');
+                        const scanner = new Html5Qrcode("barcode-reader");
+                        scannerInstance = scanner;
+                        btn.disabled = true; btn.textContent = '⏳ Сканирую...';
+                        await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (code) => {
+                            scanner.stop();
+                            btn.disabled = false; btn.textContent = '🎥 Сканировать';
+                            const product = PRODUCTS_DB.find(p => p.id === code);
+                            if (product) { appState.selectedProduct = product; navigate('/add'); }
+                            else showAlert('Продукт не найден');
+                        }, () => {});
+                        setTimeout(() => { if (scanner.isScanning) { scanner.stop(); btn.disabled=false; btn.textContent='🎥 Сканировать'; } }, 30000);
+                    } catch(e) { showAlert('Ошибка камеры'); btn.disabled=false; btn.textContent='🎥 Сканировать'; }
+                };
+            }
+
+            // ========== ОСНОВНОЙ РЕНДЕР ==========
+            let currentHtml = '';
+            function render() {
+                let content = '';
+                switch(currentRoute) {
+                    case '/': content = renderDashboard(); break;
+                    case '/premium': content = renderPremiumPage(); break;
+                    case '/add': content = renderAddFood(); break;
+                    case '/diary': content = renderDiary(); break;
+                    case '/profile': content = renderProfile(); break;
+                    case '/scan': content = renderScanner(); break;
+                    default: content = renderDashboard();
+                }
+                const themeBtn = `<div class="theme-switch" id="themeToggle">${document.body.classList.contains('dark') ? '☀️' : '🌙'}</div>`;
+                const nav = `<div class="bottom-nav">${['/', '/add', '/scan', '/diary', '/profile', '/premium'].map(r => `<button class="nav-item" data-route="${r}" style="opacity:${currentRoute===r?1:0.5}"><span>${r==='/'?'🏠':r==='/add'?'+':r==='/scan'?'📷':r==='/diary'?'📓':r==='/profile'?'👤':'💎'}</span><span class="nav-label">${r==='/'?'Главная':r==='/add'?'Добавить':r==='/scan'?'Скан':r==='/diary'?'Дневник':r==='/profile'?'Профиль':'Premium'}</span></button>`).join('')}</div>`;
+                const full = themeBtn + content + nav;
+                if (full !== currentHtml) { document.getElementById('root').innerHTML = full; currentHtml = full; }
+                document.querySelectorAll('.nav-item').forEach(btn => { btn.onclick = () => { if (btn.dataset.route === '/add') appState.selectedProduct = null; navigate(btn.dataset.route); }; });
+                const themeToggle = document.getElementById('themeToggle');
+                if (themeToggle) themeToggle.onclick = () => { setTheme(document.body.classList.contains('dark') ? 'light' : 'dark'); render(); };
+                const upgradeBtn = document.getElementById('upgradeBtn');
+                if (upgradeBtn) upgradeBtn.onclick = () => navigate('/premium');
+                if (currentRoute === '/') initAssistant();
+                if (currentRoute === '/premium') initPremiumPage();
+                if (currentRoute === '/add') initAddFood();
+                if (currentRoute === '/diary') initDiary();
+                if (currentRoute === '/profile') initProfile();
+                if (currentRoute === '/scan') initScanner();
+            }
+
+            // ========== ЗАПУСК ==========
+            function init() {
+                const savedTheme = localStorage.getItem('nutribot_theme') || 'light';
+                setTheme(savedTheme);
+                let profile = getUserProfile();
+                if (!profile) {
+                    const uid = tg?.initDataUnsafe?.user?.id || 123456;
+                    profile = {
+                        telegramId: uid,
+                        name: tg?.initDataUnsafe?.user?.first_name || 'Гость',
+                        age: 30, weight: 70, height: 170,
+                        activityLevel: 'moderate', goal: 'maintain',
+                        dailyCalorieTarget: 2200, dailyProteinTarget: 112,
+                        dailyFatTarget: 73, dailyCarbsTarget: 275
+                    };
+                    profile.dailyCalorieTarget = calculateCalories(profile);
+                    profile.dailyProteinTarget = Math.round(profile.weight * 1.6);
+                    profile.dailyFatTarget = Math.round(profile.dailyCalorieTarget * 0.3 / 9);
+                    profile.dailyCarbsTarget = Math.round(profile.dailyCalorieTarget * 0.5 / 4);
+                    saveUserProfile(profile);
+                }
+                appState.profile = profile;
+                updateStreak();
+                render();
+            }
+            init();
+        })();
+    </script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</body>
+</html>
